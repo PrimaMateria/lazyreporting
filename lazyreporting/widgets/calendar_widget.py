@@ -70,5 +70,6 @@ class CalendarWidget(Widget):
             self.selected = self.selected + timedelta(weeks=1)
             event.stop()
         elif key == "t":
+            # Jump to today
             self.selected = date.today()
             event.stop()

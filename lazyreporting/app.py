@@ -1,3 +1,11 @@
+"""
+lazyreporting — TUI for logging time entries via Watson with Jira issue lookup.
+
+Layout:
+  Left column (2fr):  weekly calendar (top) + daily Watson log (bottom)
+  Right column (3fr): entry form with full-width live Jira issue list
+"""
+
 from datetime import date
 
 from textual.app import App, ComposeResult

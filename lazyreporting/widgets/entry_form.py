@@ -96,6 +96,7 @@ class EntryForm(Widget):
             self._submit()
 
     def on_input_changed(self, event: Input.Changed) -> None:
+        # Auto-advance focus after 4 digits so the user never needs to tab.
         if event.input.id in ("from-input", "to-input") and len(event.value) == 4:
             if event.input.id == "from-input":
                 self.query_one("#to-input", Input).focus()
@@ -104,9 +105,11 @@ class EntryForm(Widget):
 
     def on_key(self, event) -> None:
         focused = self.app.focused
+        # Down from issue input → move into the list for keyboard selection.
         if event.key == "down" and focused and focused.id == "issue-input":
             self.query_one("#issue-list", ListView).focus()
             event.stop()
+        # Escape from list → return focus to the issue input.
         elif event.key == "escape" and focused and focused.id == "issue-list":
             self.query_one(IssueSearch).focus()
             event.stop()

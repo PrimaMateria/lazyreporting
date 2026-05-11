@@ -59,6 +59,7 @@ def add_entry(
 
 
 def sync_jira() -> str:
+    # watson-jira reads its own config and pushes Watson frames to Jira worklogs.
     result = subprocess.run(
         ["watson-jira", "sync"],
         capture_output=True,

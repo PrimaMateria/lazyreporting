@@ -40,7 +40,13 @@ def get_jira_api_token(cfg: dict) -> str:
 
 
 def map_ticket_to_args(ticket: str) -> tuple[str, list[str]]:
-    """Return (watson_project, tags) for a given Jira ticket key."""
+    """Return (watson_project, tags) for a given Jira ticket key.
+
+    Ticket prefix determines the Watson project:
+      DATAINT-* → project "di"
+      FINAPI-*  → project "webform"
+      empty     → project "di", tag "other" (general non-sprint work)
+    """
     if not ticket:
         return ("di", ["other"])
     if ticket.upper().startswith("DATAINT"):
