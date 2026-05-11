@@ -69,6 +69,19 @@ class LazyReporting(App):
     .pane              { border: solid $panel; }
     .pane.nav-selected { border: solid $warning; }
     .pane.pane-active  { border: solid $success; }
+    /* Reserve border space so focus highlight doesn't cause layout shifts */
+    Input {
+        border: tall transparent;
+    }
+    ListView {
+        border: solid transparent;
+    }
+    CalendarWidget {
+        border: solid transparent;
+    }
+    LogPanel {
+        border: solid transparent;
+    }
     /* Focused widgets inside a pane: yellow */
     Input:focus {
         border: tall $warning;
