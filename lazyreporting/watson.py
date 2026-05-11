@@ -24,6 +24,7 @@ def get_log(day: date) -> list[dict]:
         stop = datetime.fromisoformat(frame["stop"])
         entries.append(
             {
+                "id": frame["id"],
                 "project": frame["project"],
                 "tags": frame["tags"],
                 "start": start,
@@ -66,6 +67,10 @@ def sync_jira() -> str:
         text=True,
     )
     return result.stdout + result.stderr
+
+
+def remove_entry(frame_id: str) -> None:
+    _run(["watson", "remove", "--force", frame_id])
 
 
 def _parse_hhmm(value: str) -> str:
