@@ -38,6 +38,8 @@ class EntryForm(Widget):
         height: 1;
     }
     EntryForm #issue-list {
+        margin-top: 1;
+        padding-left: 1;
         height: 1fr;
     }
     """
