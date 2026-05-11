@@ -107,6 +107,19 @@ class LogPanel(Widget):
         total_secs = 0
 
         for i, e in enumerate(self._entries):
+            # Insert a grey filler for any gap between the previous entry and this one.
+            if i > 0:
+                gap_secs = int((e["start"] - self._entries[i - 1]["stop"]).total_seconds())
+                if gap_secs > 0:
+                    gh, grem = divmod(gap_secs, 3600)
+                    gm = grem // 60
+                    gap_dur = f"{gh}h{gm:02d}m" if gh else f"{gm}m"
+                    gap_start = self._entries[i - 1]["stop"].strftime("%H:%M")
+                    gap_stop = e["start"].strftime("%H:%M")
+                    lines.append(
+                        f" [dim]{gap_start} – {gap_stop}  {gap_dur}[/]"
+                    )
+
             start = e["start"].strftime("%H:%M")
             stop = e["stop"].strftime("%H:%M")
             duration = int((e["stop"] - e["start"]).total_seconds())
