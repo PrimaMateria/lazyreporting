@@ -9,6 +9,7 @@ CACHE_TTL = 900  # 15 minutes
 
 JQL = (
     "project in (FINAPI, DATAINT) "
+    "AND labels = Frontend "
     "AND (STATUS != Done OR updated > -1w) "
     "ORDER BY updated DESC"
 )
@@ -44,15 +45,15 @@ def save_cache(issues: list[dict]) -> None:
         json.dump(issues, f)
 
 
-def fetch_issues(server: str, cookie: str, max_results: int = 100) -> list[dict]:
-    url = f"{server}/rest/api/2/search"
-    headers = {"Cookie": cookie, "Content-Type": "application/json"}
+def fetch_issues(server: str, email: str, api_token: str, max_results: int = 100) -> list[dict]:
+    url = f"{server}/rest/api/3/search/jql"
+    headers = {"Content-Type": "application/json"}
     params = {
         "jql": JQL,
         "fields": "key,summary,status,assignee",
         "maxResults": max_results,
     }
-    resp = requests.get(url, headers=headers, params=params, timeout=15)
+    resp = requests.get(url, headers=headers, params=params, timeout=15, auth=(email, api_token))
     resp.raise_for_status()
     data = resp.json()
     issues = []

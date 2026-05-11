@@ -23,17 +23,21 @@ class LazyReporting(App):
         height: 1fr;
         layout: horizontal;
     }
+    #left-pane {
+        width: 2fr;
+        layout: vertical;
+    }
     #calendar-pane {
-        width: 28;
+        height: auto;
         border: solid $panel;
         padding: 0 1;
     }
     #log-pane {
-        width: 1fr;
+        height: 1fr;
         border: solid $panel;
     }
     #entry-pane {
-        height: auto;
+        width: 3fr;
         border: solid $accent;
         padding: 0 1;
     }
@@ -59,15 +63,16 @@ class LazyReporting(App):
     def compose(self) -> ComposeResult:
         yield Header()
         with Horizontal(id="top-row"):
-            with Vertical(id="calendar-pane"):
-                yield Static("[bold]Calendar[/]")
-                yield CalendarWidget()
-            with Vertical(id="log-pane"):
-                yield Static("[bold]Log[/]")
-                yield LogPanel(id="log-panel")
-        with Vertical(id="entry-pane"):
-            yield Static("[bold]Add Entry[/]")
-            yield EntryForm(app_config={}, id="entry-form")
+            with Vertical(id="left-pane"):
+                with Vertical(id="calendar-pane"):
+                    yield Static("[bold]Calendar[/]")
+                    yield CalendarWidget()
+                with Vertical(id="log-pane"):
+                    yield Static("[bold]Log[/]")
+                    yield LogPanel(id="log-panel")
+            with Vertical(id="entry-pane"):
+                yield Static("[bold]Add Entry[/]")
+                yield EntryForm(app_config={}, id="entry-form")
         yield Static("Loading…", id="status-bar")
         yield Footer()
 
@@ -106,8 +111,9 @@ class LazyReporting(App):
     def _fetch_issues_worker(self) -> None:
         try:
             server = cfg.get_jira_server(self._app_config)
-            cookie = cfg.get_jira_cookie(self._app_config)
-            issues = jira_client.fetch_issues(server, cookie)
+            email = cfg.get_jira_email(self._app_config)
+            api_token = cfg.get_jira_api_token(self._app_config)
+            issues = jira_client.fetch_issues(server, email, api_token)
             jira_client.save_cache(issues)
             self.call_from_thread(self._set_issues, issues)
             self.call_from_thread(

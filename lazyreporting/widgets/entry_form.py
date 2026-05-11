@@ -3,7 +3,7 @@ from datetime import date
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widget import Widget
-from textual.widgets import Button, Input, Label, Static
+from textual.widgets import Button, Input, Label, ListItem, ListView, Static
 
 from .. import config as cfg
 from .. import watson
@@ -15,23 +15,30 @@ class EntryForm(Widget):
 
     DEFAULT_CSS = """
     EntryForm {
-        height: auto;
+        height: 1fr;
         padding: 0 1;
+        layout: vertical;
     }
     EntryForm #form-row {
         layout: horizontal;
         height: auto;
         align: left middle;
     }
-    EntryForm Input {
-        width: 10;
+    EntryForm #from-input {
+        width: 11;
     }
-    EntryForm IssueSearch {
+    EntryForm #to-input {
+        width: 11;
+    }
+    EntryForm #form-row IssueSearch {
         width: 1fr;
     }
     EntryForm #error-msg {
         color: $error;
         height: 1;
+    }
+    EntryForm #issue-list {
+        height: 1fr;
     }
     """
 
@@ -44,6 +51,8 @@ class EntryForm(Widget):
         super().__init__(**kwargs)
         self._config = app_config
         self._day: date = date.today()
+        self._all_issues: list[dict] = []
+        self._filtered: list[dict] = []
 
     def compose(self) -> ComposeResult:
         yield Static("", id="error-msg")
@@ -55,9 +64,29 @@ class EntryForm(Widget):
             yield Label("  Issue ")
             yield IssueSearch(id="issue-search")
             yield Button("Add", id="add-btn", variant="primary")
+        yield ListView(id="issue-list")
 
     def set_issues(self, issues: list[dict]) -> None:
+        self._all_issues = issues
         self.query_one(IssueSearch).set_issues(issues)
+        self._update_list(issues)
+
+    def _update_list(self, issues: list[dict]) -> None:
+        self._filtered = issues
+        lv = self.query_one("#issue-list", ListView)
+        lv.clear()
+        for issue in issues:
+            lv.append(ListItem(Label(f"[bold]{issue['key']}[/]  {issue['summary']}")))
+
+    def on_issue_search_filter_changed(self, event: IssueSearch.FilterChanged) -> None:
+        self._update_list(event.issues)
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        idx = event.list_view.index
+        if idx is not None and idx < len(self._filtered):
+            issue = self._filtered[idx]
+            self.query_one(IssueSearch).set_value(issue["key"])
+            self.query_one(IssueSearch).focus()
 
     def set_day(self, day: date) -> None:
         self._day = day
@@ -66,12 +95,24 @@ class EntryForm(Widget):
         if event.button.id == "add-btn":
             self._submit()
 
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id in ("from-input", "to-input") and len(event.value) == 4:
+            if event.input.id == "from-input":
+                self.query_one("#to-input", Input).focus()
+            else:
+                self.query_one(IssueSearch).focus()
+
     def on_key(self, event) -> None:
-        if event.key == "enter":
-            focused = self.app.focused
-            if focused and focused.id in ("from-input", "to-input"):
-                self._submit()
-                event.stop()
+        focused = self.app.focused
+        if event.key == "down" and focused and focused.id == "issue-input":
+            self.query_one("#issue-list", ListView).focus()
+            event.stop()
+        elif event.key == "escape" and focused and focused.id == "issue-list":
+            self.query_one(IssueSearch).focus()
+            event.stop()
+        elif event.key == "enter" and focused and focused.id in ("from-input", "to-input"):
+            self._submit()
+            event.stop()
 
     def _submit(self) -> None:
         from_val = self.query_one("#from-input", Input).value.strip()

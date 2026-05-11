@@ -18,8 +18,25 @@ def get_jira_server(cfg: dict) -> str:
     return cfg["jira"]["server"].rstrip("/")
 
 
-def get_jira_cookie(cfg: dict) -> str:
-    return cfg["jira"]["cookie"]
+def get_jira_email(cfg: dict) -> str:
+    try:
+        return cfg["jira"]["email"]
+    except KeyError:
+        raise KeyError(
+            "Missing jira.email in config. "
+            "Please update your config with 'email' and 'api_token' fields "
+            "(cookie auth is no longer supported)."
+        )
+
+
+def get_jira_api_token(cfg: dict) -> str:
+    try:
+        return cfg["jira"]["api_token"]
+    except KeyError:
+        raise KeyError(
+            "Missing jira.api_token in config. "
+            "Generate one at https://id.atlassian.com/manage-profile/security/api-tokens"
+        )
 
 
 def map_ticket_to_args(ticket: str) -> tuple[str, list[str]]:

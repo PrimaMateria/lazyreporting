@@ -30,6 +30,7 @@ def get_log(day: date) -> list[dict]:
                 "stop": stop,
             }
         )
+    entries.sort(key=lambda e: e["start"])
     return entries
 
 
