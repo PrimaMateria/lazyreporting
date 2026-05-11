@@ -8,7 +8,11 @@ from textual.widgets import Static
 
 
 class CalendarWidget(Widget):
-    """Week calendar — navigate with left/right (days) and [ / ] (weeks)."""
+    """Week calendar — navigate with left/right (days) and [ / ] (weeks).
+
+    Focusable: press F1 (or Tab) to focus. Arrow keys navigate days,
+    [ / ] navigate weeks, t jumps to today.
+    """
 
     DEFAULT_CSS = """
     CalendarWidget {
@@ -16,6 +20,8 @@ class CalendarWidget(Widget):
         padding: 0 1;
     }
     """
+
+    can_focus = True
 
     class DaySelected(Message):
         def __init__(self, day: date) -> None:

@@ -8,7 +8,7 @@ from .. import watson
 
 
 class LogPanel(Widget):
-    """Shows watson log for a given day."""
+    """Shows watson log for a given day. Focusable — scroll with up/down arrows."""
 
     DEFAULT_CSS = """
     LogPanel {
@@ -17,6 +17,16 @@ class LogPanel(Widget):
         overflow-y: auto;
     }
     """
+
+    can_focus = True
+
+    def on_key(self, event) -> None:
+        if event.key == "up":
+            self.scroll_up()
+            event.stop()
+        elif event.key == "down":
+            self.scroll_down()
+            event.stop()
 
     def compose(self) -> ComposeResult:
         yield Static("", id="log-content")
