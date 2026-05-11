@@ -1,11 +1,16 @@
 from datetime import date
 
+from rich.align import Align
+from rich.console import Group as RichGroup
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import Button, Label, Static
 
-from .. import watson
+from .. import jira_client, watson
 
 
 class ConfirmDeleteScreen(ModalScreen[bool]):
@@ -103,11 +108,14 @@ class LogPanel(Widget):
             content.update(f"[dim]No entries for {day.isoformat()}[/]")
             return
 
-        lines = [f"[bold]{day.strftime('%A, %d %B %Y')}[/]\n"]
-        total_secs = 0
+        jira_map = {i["key"].upper(): i["summary"] for i in jira_client.load_cache()}
+        total_secs = sum(
+            int((e["stop"] - e["start"]).total_seconds()) for e in self._entries
+        )
+
+        renderables: list = [Text(day.strftime("%A, %d %B %Y"), style="bold")]
 
         for i, e in enumerate(self._entries):
-            # Insert a grey filler for any gap between the previous entry and this one.
             if i > 0:
                 gap_secs = int((e["start"] - self._entries[i - 1]["stop"]).total_seconds())
                 if gap_secs > 0:
@@ -116,39 +124,80 @@ class LogPanel(Widget):
                     gap_dur = f"{gh}h{gm:02d}m" if gh else f"{gm}m"
                     gap_start = self._entries[i - 1]["stop"].strftime("%H:%M")
                     gap_stop = e["start"].strftime("%H:%M")
-                    lines.append(
-                        f" [dim]{gap_start} – {gap_stop}  {gap_dur}[/]"
+                    renderables.append(
+                        Text(f"  {gap_start} – {gap_stop}  {gap_dur}", style="dim")
                     )
 
-            start = e["start"].strftime("%H:%M")
-            stop = e["stop"].strftime("%H:%M")
             duration = int((e["stop"] - e["start"]).total_seconds())
-            total_secs += duration
-            h, rem = divmod(duration, 3600)
-            m = rem // 60
-            dur_str = f"{h}h{m:02d}m" if h else f"{m}m"
-            project = e["project"]
-            tags = ", ".join(e["tags"]) if e["tags"] else ""
-            tag_str = f" +{tags}" if tags else ""
-
-            if i == self._focused_idx:
-                line = (
-                    f"[bold reverse] {start} – {stop}  {project}{tag_str}  {dur_str} [/]"
-                )
-            else:
-                line = (
-                    f" [cyan]{start}[/] – [cyan]{stop}[/]"
-                    f"  [bold]{project}[/]"
-                    + (f"  [dim]+{tags}[/]" if tags else "")
-                    + f"  [dim]{dur_str}[/]"
-                )
-
-            lines.append(line)
+            fraction = duration / total_secs if total_secs else 0
+            renderables.append(self._build_card(e, i == self._focused_idx, fraction, jira_map))
 
         th, trem = divmod(total_secs, 3600)
         tm = trem // 60
-        lines.append(f"\n[bold]Total: {th}h{tm:02d}m[/]")
-        content.update("\n".join(lines))
+        renderables.append(Text(f"Total: {th}h{tm:02d}m", style="bold"))
+        content.update(RichGroup(*renderables))
+
+    def _build_card(self, e: dict, is_focused: bool, fraction: float, jira_map: dict) -> Panel:
+        start = e["start"].strftime("%H:%M")
+        stop = e["stop"].strftime("%H:%M")
+        duration = int((e["stop"] - e["start"]).total_seconds())
+        h, rem = divmod(duration, 3600)
+        m = rem // 60
+        dur_str = f"{h}h{m:02d}m" if h else f"{m}m"
+        project = e["project"]
+        tags = e["tags"]
+
+        jira_key = next(
+            (t for t in tags if t.upper().startswith(("DATAINT-", "FINAPI-"))), None
+        )
+        other_tags = [t for t in tags if t != jira_key]
+
+        bar_width = 20
+        filled = round(fraction * bar_width)
+        pct = round(fraction * 100)
+
+        # Left column: time period, vertically centered
+        time_col = Text(justify="center")
+        time_col.append(start, style="bold cyan")
+        time_col.append("\n  –  \n", style="dim")
+        time_col.append(stop, style="bold cyan")
+
+        # Right column rows
+        right_rows: list = []
+
+        # Row 1: progress bar + duration + percent
+        row1 = Text()
+        row1.append("█" * filled, style="green")
+        row1.append("░" * (bar_width - filled), style="bright_black")
+        row1.append(f"  {dur_str}", style="bold green")
+        row1.append(f" ({pct}%)", style="dim green")
+        right_rows.append(row1)
+
+        # Row 2: jira key + summary (or empty if no jira)
+        if jira_key:
+            summary = jira_map.get(jira_key.upper(), "")
+            row3 = Text()
+            row3.append(jira_key, style="bold magenta")
+            if summary:
+                row3.append(f"  {summary}")
+            right_rows.append(row3)
+        else:
+            right_rows.append(Text(""))
+
+        # Row 3: project + tags, all dark grey
+        row4 = Text()
+        row4.append(project, style="bright_black")
+        if other_tags:
+            row4.append("  +" + " +".join(other_tags), style="bright_black")
+        right_rows.append(row4)
+
+        grid = Table.grid(padding=(0, 2))
+        grid.add_column(justify="center", vertical="middle", min_width=7)
+        grid.add_column(ratio=1)
+        grid.add_row(time_col, RichGroup(*right_rows))
+
+        border_style = "white" if is_focused else "bright_black"
+        return Panel(grid, border_style=border_style, padding=(0, 1))
 
     def _clamp(self, idx: int) -> int:
         if not self._entries:
