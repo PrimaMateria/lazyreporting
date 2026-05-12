@@ -83,6 +83,7 @@ class LogPanel(Widget):
         self._day: date = date.today()
         self._entries: list[dict] = []
         self._focused_idx: int = -1
+        self._active: bool = False
 
     def compose(self) -> ComposeResult:
         yield Static("", id="log-content")
@@ -196,7 +197,7 @@ class LogPanel(Widget):
         grid.add_column(ratio=1)
         grid.add_row(time_col, RichGroup(*right_rows))
 
-        border_style = "white" if is_focused else "bright_black"
+        border_style = "yellow" if (is_focused and self._active) else "bright_black"
         return Panel(grid, border_style=border_style, padding=(0, 1))
 
     def _clamp(self, idx: int) -> int:
@@ -205,6 +206,14 @@ class LogPanel(Widget):
         return max(0, min(idx, len(self._entries) - 1))
 
     # ── Key handling ──────────────────────────────────────────────────────────
+
+    def on_focus(self) -> None:
+        self._active = True
+        self._update_display()
+
+    def on_blur(self) -> None:
+        self._active = False
+        self._update_display()
 
     def on_key(self, event) -> None:
         if event.key == "up":

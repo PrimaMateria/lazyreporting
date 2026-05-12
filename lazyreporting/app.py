@@ -107,12 +107,6 @@ class LazyReporting(App):
     ListView:focus {
         border: solid $warning;
     }
-    CalendarWidget:focus {
-        border: solid $warning;
-    }
-    LogPanel:focus {
-        border: solid $warning;
-    }
     SummaryPanel:focus {
         border: solid $warning;
     }
