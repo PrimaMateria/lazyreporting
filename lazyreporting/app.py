@@ -25,22 +25,29 @@ from . import watson
 from .widgets.calendar_widget import CalendarWidget
 from .widgets.entry_form import EntryForm
 from .widgets.log_panel import LogPanel
+from .widgets.summary_panel import SummaryPanel
 
 # Ordered pane IDs used for navigation.
-_PANES = ["calendar-pane", "log-pane", "entry-pane"]
+_PANES = ["calendar-pane", "log-pane", "summary-pane", "entry-pane"]
 
 # Spatial vim-key transitions: (current_pane, key) -> next_pane
 _NAV = {
-    ("calendar-pane", "j"):    "log-pane",
-    ("calendar-pane", "down"): "log-pane",
+    ("calendar-pane", "j"):     "log-pane",
+    ("calendar-pane", "down"):  "log-pane",
     ("calendar-pane", "l"):     "entry-pane",
     ("calendar-pane", "right"): "entry-pane",
-    ("log-pane",      "k"):    "calendar-pane",
-    ("log-pane",      "up"):   "calendar-pane",
+    ("log-pane",      "k"):     "calendar-pane",
+    ("log-pane",      "up"):    "calendar-pane",
+    ("log-pane",      "j"):     "summary-pane",
+    ("log-pane",      "down"):  "summary-pane",
     ("log-pane",      "l"):     "entry-pane",
     ("log-pane",      "right"): "entry-pane",
-    ("entry-pane",    "h"):    "calendar-pane",
-    ("entry-pane",    "left"): "calendar-pane",
+    ("summary-pane",  "k"):     "log-pane",
+    ("summary-pane",  "up"):    "log-pane",
+    ("summary-pane",  "l"):     "entry-pane",
+    ("summary-pane",  "right"): "entry-pane",
+    ("entry-pane",    "h"):     "calendar-pane",
+    ("entry-pane",    "left"):  "calendar-pane",
 }
 
 
@@ -66,6 +73,9 @@ class LazyReporting(App):
     #log-pane {
         height: 1fr;
     }
+    #summary-pane {
+        height: auto;
+    }
     #entry-pane {
         width: 3fr;
         padding: 0 1;
@@ -87,6 +97,9 @@ class LazyReporting(App):
     LogPanel {
         border: solid transparent;
     }
+    SummaryPanel {
+        border: solid transparent;
+    }
     /* Focused widgets inside a pane: yellow */
     Input:focus {
         border: tall $warning;
@@ -98,6 +111,9 @@ class LazyReporting(App):
         border: solid $warning;
     }
     LogPanel:focus {
+        border: solid $warning;
+    }
+    SummaryPanel:focus {
         border: solid $warning;
     }
     #status-bar {
@@ -132,6 +148,9 @@ class LazyReporting(App):
                 with Vertical(id="log-pane", classes="pane"):
                     yield Static("[bold]Log[/]")
                     yield LogPanel(id="log-panel")
+                with Vertical(id="summary-pane", classes="pane"):
+                    yield Static("[bold]Summary[/]")
+                    yield SummaryPanel(id="summary-panel")
             with Vertical(id="entry-pane", classes="pane"):
                 yield Static("[bold]Add Entry[/]")
                 yield EntryForm(app_config={}, id="entry-form")
@@ -158,9 +177,10 @@ class LazyReporting(App):
 
         self.run_worker(self._fetch_issues_worker, exclusive=True, thread=True)
 
-        # Show today's log
+        # Show today's log and summary
         today = date.today()
         self.query_one(LogPanel).refresh_for_day(today)
+        self.query_one(SummaryPanel).refresh_for_day(today)
         self.query_one(EntryForm).set_day(today)
 
         # Mark and focus entry pane as the initially active pane
@@ -251,6 +271,8 @@ class LazyReporting(App):
             self.query_one(CalendarWidget).focus()
         elif pane_id == "log-pane":
             self.query_one(LogPanel).focus()
+        elif pane_id == "summary-pane":
+            self.query_one(SummaryPanel).focus()
         elif pane_id == "entry-pane":
             self.query_one(EntryForm).query_one("#from-input").focus()
 
@@ -258,10 +280,12 @@ class LazyReporting(App):
 
     def on_calendar_widget_day_selected(self, event: CalendarWidget.DaySelected) -> None:
         self.query_one(LogPanel).refresh_for_day(event.day)
+        self.query_one(SummaryPanel).refresh_for_day(event.day)
         self.query_one(EntryForm).set_day(event.day)
 
     def on_entry_form_entry_added(self, event: EntryForm.EntryAdded) -> None:
         self.query_one(LogPanel).refresh_for_day(event.day)
+        self.query_one(SummaryPanel).refresh_for_day(event.day)
 
     def _fetch_issues_worker(self) -> None:
         try:
@@ -284,6 +308,7 @@ class LazyReporting(App):
     def _set_issues(self, issues: list[dict]) -> None:
         self._issues = issues
         self.query_one(EntryForm).set_issues(issues)
+        self.query_one(SummaryPanel).set_issues(issues)
 
     def action_refresh_issues(self) -> None:
         self.query_one("#status-bar", Static).update("Refreshing…")
