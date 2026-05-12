@@ -31,10 +31,10 @@ def get_jira_email(cfg: dict) -> str:
 
 def get_jira_api_token(cfg: dict) -> str:
     try:
-        return cfg["jira"]["api_token"]
+        return cfg["jira"]["apiToken"]
     except KeyError:
         raise KeyError(
-            "Missing jira.api_token in config. "
+            "Missing jira.apiToken in config. "
             "Generate one at https://id.atlassian.com/manage-profile/security/api-tokens"
         )
 
