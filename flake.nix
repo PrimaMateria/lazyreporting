@@ -47,28 +47,33 @@
             pythonEnv
           ];
           shellHook = ''
-            export WATSON_JIRA_CONFIG="''${WATSON_JIRA_CONFIG:-$HOME/.config/watson-jira/config.yaml}"
+            export LAZYREPORTING_CONFIG="''${LAZYREPORTING_CONFIG:-$HOME/.config/lazyreporting/config.yaml}"
 
             alias lr="python -m lazyreporting"
 
-            if [ ! -f "$WATSON_JIRA_CONFIG" ]; then
-              echo "Warning: watson-jira config not found at $WATSON_JIRA_CONFIG"
+            if [ ! -f "$LAZYREPORTING_CONFIG" ]; then
+              echo "Warning: lazyreporting config not found at $LAZYREPORTING_CONFIG"
               echo "Create it with the following format:"
               echo ""
               echo "  jira:"
-              echo "    server: https://finapi.jira.com/"
-              echo "    cookie: <your-session-cookie>"
-              echo "  mappings:"
-              echo "    - name: sprint"
-              echo "      type: issue_specified_in_tag"
-              echo "    - name: other"
-              echo "      type: single_issue"
-              echo "      issue: DATAINT-3511"
+              echo "    server: https://your-company.atlassian.net"
+              echo "    email: you@example.com"
+              echo "    apiToken: <your-api-token>"
+              echo "    projects: [PROJ1, PROJ2]"
+              echo "    label: Frontend  # optional"
+              echo "  watson:"
+              echo "    mappings:"
+              echo "      - prefix: PROJ1"
+              echo "        project: myproject"
+              echo "        tags: [sprint]"
+              echo "    default:"
+              echo "      project: myproject"
+              echo "      tags: [other]"
             fi
 
             echo "nix.shell.lazyreporting"
             echo "  lr     - launch TUI"
-            echo "  Config: $WATSON_JIRA_CONFIG"
+            echo "  Config: $LAZYREPORTING_CONFIG"
           '';
         };
       }

@@ -171,6 +171,8 @@ class LazyReporting(App):
 
         self.run_worker(self._fetch_issues_worker, exclusive=True, thread=True)
 
+        self.query_one(EntryForm).set_config(self._app_config)
+
         # Show today's log and summary
         today = date.today()
         self.query_one(LogPanel).refresh_for_day(today)
@@ -286,7 +288,9 @@ class LazyReporting(App):
             server = cfg.get_jira_server(self._app_config)
             email = cfg.get_jira_email(self._app_config)
             api_token = cfg.get_jira_api_token(self._app_config)
-            issues = jira_client.fetch_issues(server, email, api_token)
+            projects = cfg.get_jira_projects(self._app_config)
+            label = cfg.get_jira_label(self._app_config)
+            issues = jira_client.fetch_issues(server, email, api_token, projects, label)
             jira_client.save_cache(issues)
             self.call_from_thread(self._set_issues, issues)
             self.call_from_thread(

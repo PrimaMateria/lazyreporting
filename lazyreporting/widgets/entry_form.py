@@ -68,6 +68,9 @@ class EntryForm(Widget):
             yield Button("Add", id="add-btn", variant="primary")
         yield ListView(id="issue-list")
 
+    def set_config(self, app_config: dict) -> None:
+        self._config = app_config
+
     def set_issues(self, issues: list[dict]) -> None:
         self._all_issues = issues
         self.query_one(IssueSearch).set_issues(issues)
@@ -128,7 +131,7 @@ class EntryForm(Widget):
         error.update("")
 
         try:
-            project, tags = cfg.map_ticket_to_args(ticket)
+            project, tags = cfg.map_ticket_to_args(ticket, self._config)
             watson.add_entry(self._day, from_val, to_val, project, tags)
         except Exception as exc:
             error.update(f"[bold red]Error:[/] {exc}")

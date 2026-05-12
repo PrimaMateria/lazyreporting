@@ -5,11 +5,11 @@ import yaml
 
 
 def _default_config_path() -> Path:
-    return Path.home() / ".config" / "watson-jira" / "config.yaml"
+    return Path.home() / ".config" / "lazyreporting" / "config.yaml"
 
 
 def load() -> dict:
-    path = Path(os.environ.get("WATSON_JIRA_CONFIG", _default_config_path()))
+    path = Path(os.environ.get("LAZYREPORTING_CONFIG", _default_config_path()))
     with open(path) as f:
         return yaml.safe_load(f)
 
@@ -24,8 +24,7 @@ def get_jira_email(cfg: dict) -> str:
     except KeyError:
         raise KeyError(
             "Missing jira.email in config. "
-            "Please update your config with 'email' and 'api_token' fields "
-            "(cookie auth is no longer supported)."
+            "Please add 'email' and 'apiToken' under the jira section."
         )
 
 
@@ -39,19 +38,31 @@ def get_jira_api_token(cfg: dict) -> str:
         )
 
 
-def map_ticket_to_args(ticket: str) -> tuple[str, list[str]]:
-    """Return (watson_project, tags) for a given Jira ticket key.
+def get_jira_projects(cfg: dict) -> list[str]:
+    try:
+        return cfg["jira"]["projects"]
+    except KeyError:
+        raise KeyError("Missing jira.projects in config (list of Jira project keys).")
 
-    Ticket prefix determines the Watson project:
-      DATAINT-* → project "di"
-      FINAPI-*  → project "webform"
-      empty     → project "di", tag "other" (general non-sprint work)
-    """
+
+def get_jira_label(cfg: dict) -> str | None:
+    return cfg.get("jira", {}).get("label")
+
+
+def map_ticket_to_args(ticket: str, cfg: dict) -> tuple[str, list[str]]:
+    """Return (watson_project, tags) for a given Jira ticket key, using config mappings."""
+    watson_cfg = cfg.get("watson", {})
+    mappings = watson_cfg.get("mappings", [])
+    default = watson_cfg.get("default", {"project": "default", "tags": ["other"]})
+
     if not ticket:
-        return ("di", ["other"])
-    if ticket.upper().startswith("DATAINT"):
-        return ("di", ["sprint", ticket])
-    if ticket.upper().startswith("FINAPI"):
-        return ("webform", ["sprint", ticket])
-    # fallback: treat as DI sprint
-    return ("di", ["sprint", ticket])
+        return (default["project"], list(default.get("tags", ["other"])))
+
+    for mapping in mappings:
+        prefix = mapping.get("prefix", "")
+        if prefix and ticket.upper().startswith(prefix.upper()):
+            tags = list(mapping.get("tags", [])) + [ticket]
+            return (mapping["project"], tags)
+
+    # fallback: use default project, treat as sprint work
+    return (default["project"], ["sprint", ticket])

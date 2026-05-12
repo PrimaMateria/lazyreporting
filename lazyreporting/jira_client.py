@@ -7,13 +7,14 @@ import requests
 CACHE_PATH = Path.home() / ".cache" / "lazyreporting" / "issues.json"
 CACHE_TTL = 900  # 15 minutes
 
-# Only fetch issues labelled Frontend, ordered newest-updated first.
-JQL = (
-    "project in (FINAPI, DATAINT) "
-    "AND labels = Frontend "
-    "AND (STATUS != Done OR updated > -1w) "
-    "ORDER BY updated DESC"
-)
+
+def _build_jql(projects: list[str], label: str | None) -> str:
+    project_list = ", ".join(projects)
+    jql = f"project in ({project_list})"
+    if label:
+        jql += f" AND labels = {label}"
+    jql += " AND (STATUS != Done OR updated > -1w) ORDER BY updated DESC"
+    return jql
 
 
 def _cache_age() -> float:
@@ -46,12 +47,18 @@ def save_cache(issues: list[dict]) -> None:
         json.dump(issues, f)
 
 
-def fetch_issues(server: str, email: str, api_token: str, max_results: int = 100) -> list[dict]:
-    # Jira Cloud requires API v3; v2 /search was removed (returns 410).
+def fetch_issues(
+    server: str,
+    email: str,
+    api_token: str,
+    projects: list[str],
+    label: str | None = None,
+    max_results: int = 100,
+) -> list[dict]:
     url = f"{server}/rest/api/3/search/jql"
     headers = {"Content-Type": "application/json"}
     params = {
-        "jql": JQL,
+        "jql": _build_jql(projects, label),
         "fields": "key,summary,status,assignee",
         "maxResults": max_results,
     }

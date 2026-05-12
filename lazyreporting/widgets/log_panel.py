@@ -1,3 +1,4 @@
+import re
 from datetime import date
 
 from rich.align import Align
@@ -149,7 +150,7 @@ class LogPanel(Widget):
         tags = e["tags"]
 
         jira_key = next(
-            (t for t in tags if t.upper().startswith(("DATAINT-", "FINAPI-"))), None
+            (t for t in tags if re.match(r"^[A-Z]+-\d+$", t)), None
         )
         other_tags = [t for t in tags if t != jira_key]
 
