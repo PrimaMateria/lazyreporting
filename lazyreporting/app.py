@@ -31,11 +31,16 @@ _PANES = ["calendar-pane", "log-pane", "entry-pane"]
 
 # Spatial vim-key transitions: (current_pane, key) -> next_pane
 _NAV = {
-    ("calendar-pane", "j"): "log-pane",
-    ("calendar-pane", "l"): "entry-pane",
-    ("log-pane",      "k"): "calendar-pane",
-    ("log-pane",      "l"): "entry-pane",
-    ("entry-pane",    "h"): "calendar-pane",
+    ("calendar-pane", "j"):    "log-pane",
+    ("calendar-pane", "down"): "log-pane",
+    ("calendar-pane", "l"):     "entry-pane",
+    ("calendar-pane", "right"): "entry-pane",
+    ("log-pane",      "k"):    "calendar-pane",
+    ("log-pane",      "up"):   "calendar-pane",
+    ("log-pane",      "l"):     "entry-pane",
+    ("log-pane",      "right"): "entry-pane",
+    ("entry-pane",    "h"):    "calendar-pane",
+    ("entry-pane",    "left"): "calendar-pane",
 }
 
 
@@ -178,7 +183,7 @@ class LazyReporting(App):
             return
 
         # In nav mode no widget has focus, so all keys arrive here unfiltered.
-        if event.key in ("h", "j", "k", "l"):
+        if event.key in ("h", "j", "k", "l", "up", "down", "left", "right"):
             next_pane = _NAV.get((self._nav_pane, event.key))
             if next_pane:
                 self._set_nav_pane(next_pane)
