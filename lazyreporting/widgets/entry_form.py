@@ -118,7 +118,7 @@ class EntryForm(Widget):
         elif event.key == "escape" and focused and focused.id == "issue-list":
             self.query_one(IssueSearch).focus()
             event.stop()
-        elif event.key == "enter" and focused and focused.id in ("from-input", "to-input"):
+        elif event.key == "enter" and focused and focused.id in ("from-input", "to-input", "issue-input"):
             self._submit()
             event.stop()
 
