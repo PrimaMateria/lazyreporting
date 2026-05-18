@@ -119,6 +119,7 @@ class LazyReporting(App):
     """
 
     BINDINGS = [
+        Binding("t", "goto_today", "Go to today"),
         Binding("r", "refresh_issues", "Refresh issues"),
         Binding("s", "sync_jira", "Sync Jira"),
         Binding("q", "quit", "Quit"),
@@ -179,9 +180,25 @@ class LazyReporting(App):
         self.query_one(SummaryPanel).refresh_for_day(today)
         self.query_one(EntryForm).set_day(today)
 
+        self._known_today = today
+        self.set_interval(60, self._check_date_rollover)
+
         # Mark and focus entry pane as the initially active pane
         self._set_active_pane("entry-pane")
         self._focus_pane("entry-pane")
+
+    def action_goto_today(self) -> None:
+        today = date.today()
+        self.query_one(CalendarWidget).selected = today
+        self._known_today = today
+
+    def _check_date_rollover(self) -> None:
+        new_today = date.today()
+        if new_today != self._known_today:
+            cal = self.query_one(CalendarWidget)
+            if cal.selected == self._known_today:
+                cal.selected = new_today
+            self._known_today = new_today
 
     # ── Pane navigation ──────────────────────────────────────────────────────
 
