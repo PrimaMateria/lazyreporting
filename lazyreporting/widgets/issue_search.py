@@ -27,7 +27,7 @@ class IssueSearch(Widget):
         self._all_issues: list[dict] = []
 
     def compose(self) -> ComposeResult:
-        yield Input(placeholder="Issue key or summary (empty = all)", id="issue-input")
+        yield Input(placeholder="Issue key or summary (empty = general work)", id="issue-input")
 
     def set_issues(self, issues: list[dict]) -> None:
         self._all_issues = issues
