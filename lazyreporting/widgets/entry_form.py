@@ -112,7 +112,10 @@ class EntryForm(Widget):
         focused = self.app.focused
         # Down from issue input → move into the list for keyboard selection.
         if event.key == "down" and focused and focused.id == "issue-input":
-            self.query_one("#issue-list", ListView).focus()
+            lv = self.query_one("#issue-list", ListView)
+            lv.focus()
+            if self._filtered:
+                lv.index = 0
             event.stop()
         # Escape from list → return focus to the issue input.
         elif event.key == "escape" and focused and focused.id == "issue-list":
