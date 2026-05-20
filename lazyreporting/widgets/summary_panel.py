@@ -2,6 +2,8 @@ import re
 from collections import defaultdict
 from datetime import date
 
+from rich.console import Group as RichGroup
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
@@ -9,6 +11,7 @@ from textual.widgets import Static
 from .. import watson
 
 _JIRA_RE = re.compile(r"^[A-Z]+-\d+$")
+_BAR_WIDTH = 24
 
 
 def _fmt_duration(seconds: float) -> str:
@@ -23,40 +26,70 @@ def _fmt_duration(seconds: float) -> str:
     return f"{mins}m"
 
 
-def _build_summary(entries: list[dict], issue_titles: dict[str, str]) -> str:
+def _build_chart(entries: list[dict], issue_titles: dict[str, str]):
     if not entries:
-        return "No entries logged."
+        return Text("No entries logged.", style="dim")
+
+    sorted_entries = sorted(entries, key=lambda e: e["start"])
+    span_start = sorted_entries[0]["start"]
+    span_end = sorted_entries[-1]["stop"]
+    total_span = (span_end - span_start).total_seconds()
+    if total_span <= 0:
+        return Text("No time span.", style="dim")
 
     totals: dict[str | None, float] = defaultdict(float)
-    for e in entries:
+    for e in sorted_entries:
         key = next((t for t in e.get("tags", []) if _JIRA_RE.match(t)), None)
-        duration = (e["stop"] - e["start"]).total_seconds()
-        totals[key] += duration
+        totals[key] += (e["stop"] - e["start"]).total_seconds()
 
-    total_secs = sum(totals.values())
+    logged_secs = sum(totals.values())
+    unlogged_secs = max(0.0, total_span - logged_secs)
 
-    groups = sorted(totals.items(), key=lambda x: x[1], reverse=True)
-    parts = []
-    for key, secs in groups:
-        if key:
-            title = issue_titles.get(key)
-            label = f"{key}: {title}" if title else key
-        else:
-            label = "general work"
-        parts.append(f"{label} ({_fmt_duration(secs)})")
+    _MAX_LABEL = 44
 
-    if len(parts) == 1:
-        body = parts[0]
-    elif len(parts) == 2:
-        body = f"{parts[0]} and {parts[1]}"
-    else:
-        body = ", ".join(parts[:-1]) + f", and {parts[-1]}"
+    def _make_label(key: str | None) -> str:
+        if key is None:
+            return "general"
+        title = issue_titles.get(key, key)
+        return title if len(title) <= _MAX_LABEL else title[:_MAX_LABEL - 1] + "…"
 
-    return f"Worked on {body}. Total: {_fmt_duration(total_secs)}."
+    # rows: (label, secs, bar_color, label_style)
+    rows: list[tuple[str, float, str, str]] = []
+    for key, secs in sorted(totals.items(), key=lambda x: x[1], reverse=True):
+        rows.append((_make_label(key), secs, "green", "bold"))
+
+    if unlogged_secs >= 60:
+        rows.append(("unlogged", unlogged_secs, "bright_black", "dim"))
+
+    if not rows:
+        return Text("No entries logged.", style="dim")
+
+    max_label_len = max(len(r[0]) for r in rows)
+
+    renderables = []
+    for label, secs, bar_color, label_style in rows:
+        frac = secs / total_span
+        filled = round(frac * _BAR_WIDTH)
+        pct = round(frac * 100)
+
+        row = Text()
+        row.append(label.ljust(max_label_len), style=label_style)
+        row.append("  ")
+        row.append("█" * filled, style=bar_color)
+        row.append("░" * (_BAR_WIDTH - filled), style="bright_black")
+        dur_style = f"bold {bar_color}" if label_style == "bold" else "dim"
+        row.append(f"  {_fmt_duration(secs)}", style=dur_style)
+        row.append(f" ({pct}%)", style="dim")
+        renderables.append(row)
+
+    renderables.append(Text(""))
+    renderables.append(Text(f"Span: {_fmt_duration(total_span)}", style="dim"))
+
+    return RichGroup(*renderables)
 
 
 class SummaryPanel(Widget):
-    """Auto-generated standup summary for the selected day."""
+    """Time distribution bar chart for the selected day."""
 
     DEFAULT_CSS = """
     SummaryPanel {
@@ -86,5 +119,5 @@ class SummaryPanel(Widget):
     def _redraw(self) -> None:
         entries = watson.get_log(self._day)
         self.query_one("#summary-text", Static).update(
-            _build_summary(entries, self._issue_titles)
+            _build_chart(entries, self._issue_titles)
         )
