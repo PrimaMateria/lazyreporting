@@ -122,6 +122,7 @@ class LazyReporting(App):
         Binding("t", "goto_today", "Go to today"),
         Binding("r", "refresh_issues", "Refresh issues"),
         Binding("s", "sync_jira", "Sync Jira"),
+        Binding("S", "sync_jira_extended", "Sync Jira (3w)"),
         Binding("q", "quit", "Quit"),
     ]
 
@@ -333,8 +334,20 @@ class LazyReporting(App):
         self.query_one("#status-bar", Static).update("Syncing to Jira…")
         self.run_worker(self._sync_worker, exclusive=False, thread=True)
 
+    def action_sync_jira_extended(self) -> None:
+        self.query_one("#status-bar", Static).update("Syncing to Jira (3 weeks)…")
+        self.run_worker(self._sync_worker_extended, exclusive=False, thread=True)
+
     def _sync_worker(self) -> None:
         out = watson.sync_jira()
+        msg = out.strip().split("\n")[-1] if out.strip() else "Sync done"
+        self.call_from_thread(
+            self.query_one("#status-bar", Static).update,
+            f"[green]{msg}[/]",
+        )
+
+    def _sync_worker_extended(self) -> None:
+        out = watson.sync_jira(from_days=21)
         msg = out.strip().split("\n")[-1] if out.strip() else "Sync done"
         self.call_from_thread(
             self.query_one("#status-bar", Static).update,
