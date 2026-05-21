@@ -7,11 +7,92 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import Button, Label, Static
+from textual.widgets import Button, Input, Label, Static
 
 from .. import jira_client, watson
+
+
+class EditEntryScreen(ModalScreen[tuple[str, str] | None]):
+    """Modal for editing start/stop times of an existing entry."""
+
+    DEFAULT_CSS = """
+    EditEntryScreen {
+        align: center middle;
+    }
+    #edit-dialog {
+        width: 46;
+        height: auto;
+        border: thick $warning;
+        background: $surface;
+        padding: 1 2;
+    }
+    #edit-title {
+        width: 1fr;
+        content-align: center middle;
+        margin-bottom: 1;
+    }
+    #time-row {
+        layout: horizontal;
+        height: auto;
+        align: left middle;
+    }
+    #time-row Input {
+        width: 12;
+    }
+    #edit-buttons {
+        layout: horizontal;
+        align: center middle;
+        height: auto;
+        margin-top: 1;
+    }
+    #edit-buttons Button {
+        margin: 0 1;
+    }
+    """
+
+    def __init__(self, entry: dict) -> None:
+        super().__init__()
+        self._entry = entry
+
+    def compose(self) -> ComposeResult:
+        start = self._entry["start"].strftime("%H:%M")
+        stop = self._entry["stop"].strftime("%H:%M")
+        project = self._entry["project"]
+        with Static(id="edit-dialog"):
+            yield Label(f"Edit  [bold]{project}[/]", id="edit-title")
+            with Static(id="time-row"):
+                yield Label("From ")
+                yield Input(value=start, id="edit-from")
+                yield Label("  To ")
+                yield Input(value=stop, id="edit-to")
+            with Static(id="edit-buttons"):
+                yield Button("Save", variant="primary", id="save")
+                yield Button("Cancel", variant="default", id="cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#edit-from", Input).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "save":
+            self._submit()
+        else:
+            self.dismiss(None)
+
+    def on_key(self, event) -> None:
+        if event.key == "escape":
+            self.dismiss(None)
+            event.stop()
+        elif event.key == "enter":
+            self._submit()
+            event.stop()
+
+    def _submit(self) -> None:
+        from_val = self.query_one("#edit-from", Input).value.strip()
+        to_val = self.query_one("#edit-to", Input).value.strip()
+        self.dismiss((from_val, to_val))
 
 
 class ConfirmDeleteScreen(ModalScreen[bool]):
@@ -66,6 +147,7 @@ class LogPanel(Widget):
 
     Navigation:
       up / down — move focus between rows
+      e         — edit start/stop times of the focused entry
       d         — delete the focused entry
     """
 
@@ -78,6 +160,11 @@ class LogPanel(Widget):
     """
 
     can_focus = True
+
+    BINDINGS = [
+        Binding("e", "edit_entry", "Edit entry"),
+        Binding("d", "delete_entry", "Delete entry"),
+    ]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -225,9 +312,32 @@ class LogPanel(Widget):
             self._focused_idx = self._clamp(self._focused_idx + 1)
             self._update_display()
             event.stop()
-        elif event.key == "d" and self._focused_idx >= 0:
+
+    def action_edit_entry(self) -> None:
+        if self._focused_idx >= 0:
+            self._edit_focused()
+
+    def action_delete_entry(self) -> None:
+        if self._focused_idx >= 0:
             self._delete_focused()
-            event.stop()
+
+    def _edit_focused(self) -> None:
+        if not self._entries or self._focused_idx < 0:
+            return
+        entry = self._entries[self._focused_idx]
+
+        def _on_result(result: tuple[str, str] | None) -> None:
+            if result is None:
+                return
+            from_hhmm, to_hhmm = result
+            try:
+                watson.remove_entry(entry["id"])
+                watson.add_entry(self._day, from_hhmm, to_hhmm, entry["project"], entry["tags"])
+            except Exception:
+                return
+            self._reload()
+
+        self.app.push_screen(EditEntryScreen(entry), _on_result)
 
     def _delete_focused(self) -> None:
         if not self._entries or self._focused_idx < 0:
