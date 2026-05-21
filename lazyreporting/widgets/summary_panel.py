@@ -12,6 +12,8 @@ from .. import watson
 
 _JIRA_RE = re.compile(r"^[A-Z]+-\d+$")
 _BAR_WIDTH = 24
+# Fixed chars per row: "  " + bar(24) + "  " + duration(8) + " (100%)"(7)
+_ROW_FIXED = 43
 
 
 def _fmt_duration(seconds: float) -> str:
@@ -26,7 +28,7 @@ def _fmt_duration(seconds: float) -> str:
     return f"{mins}m"
 
 
-def _build_chart(entries: list[dict], issue_titles: dict[str, str]):
+def _build_chart(entries: list[dict], issue_titles: dict[str, str], label_width: int):
     if not entries:
         return Text("No entries logged.", style="dim")
 
@@ -45,13 +47,11 @@ def _build_chart(entries: list[dict], issue_titles: dict[str, str]):
     logged_secs = sum(totals.values())
     unlogged_secs = max(0.0, total_span - logged_secs)
 
-    _MAX_LABEL = 44
-
     def _make_label(key: str | None) -> str:
         if key is None:
             return "general"
         title = issue_titles.get(key, key)
-        return title if len(title) <= _MAX_LABEL else title[:_MAX_LABEL - 1] + "…"
+        return title if len(title) <= label_width else title[:label_width - 1] + "…"
 
     # rows: (label, secs, bar_color, label_style)
     rows: list[tuple[str, float, str, str]] = []
@@ -116,8 +116,16 @@ class SummaryPanel(Widget):
         self._day = day
         self._redraw()
 
+    def on_resize(self, event) -> None:
+        self._redraw()
+
+    def _label_width(self) -> int:
+        # padding: 0 1 consumes 2 chars; subtract fixed row overhead
+        available = self.size.width - 2 - _ROW_FIXED
+        return max(8, available)
+
     def _redraw(self) -> None:
         entries = watson.get_log(self._day)
         self.query_one("#summary-text", Static).update(
-            _build_chart(entries, self._issue_titles)
+            _build_chart(entries, self._issue_titles, self._label_width())
         )
