@@ -16,7 +16,8 @@
     utils.lib.eachDefaultSystem (
       system: let
         overlay = final: prev: {
-          # watson-jira wrapper that reads config path from WATSON_JIRA_CONFIG env var
+          # Wraps watson-jira-next so the config path can be overridden via
+          # WATSON_JIRA_CONFIG instead of being hardcoded.
           watson-jira-next-wrapper = prev.writeShellApplication {
             name = "watson-jira";
             text = ''
@@ -31,25 +32,50 @@
           overlays = [overlay];
         };
 
-        pythonEnv = pkgs.python3.withPackages (ps:
-          with ps; [
+        # Thin binary so direnv can expose `lr` in PATH. Aliases don't survive
+        # direnv — a real script is the documented community solution.
+        # Runs from source so code changes don't require direnv reload.
+        lrBin = pkgs.writeShellApplication {
+          name = "lr";
+          text = "python -m lazyreporting \"$@\"";
+        };
+
+        # Proper package built from pyproject.toml. The `lr` entry point defined
+        # in [project.scripts] is generated automatically by buildPythonApplication.
+        # Used for `nix build` and `nix run`; not included in devShell directly.
+        lazyreporting = pkgs.python3.pkgs.buildPythonApplication {
+          pname = "lazyreporting";
+          version = "0.1.0";
+          src = ./.;
+          pyproject = true;
+          build-system = with pkgs.python3.pkgs; [setuptools];
+          dependencies = with pkgs.python3.pkgs; [
             textual
             requests
             pyyaml
             python-dateutil
-          ]);
+          ];
+        };
       in {
+        # `nix build` / `nix run` targets the fully built package.
+        packages.default = lazyreporting;
+
         devShell = pkgs.mkShell {
           name = "nix.shell.lazyreporting";
+
+          # inputsFrom pulls in lazyreporting's dependencies without rebuilding
+          # the package itself, so source changes are picked up immediately
+          # without a direnv reload.
+          inputsFrom = [lazyreporting];
+
           packages = [
             pkgs.watson
             pkgs.watson-jira-next-wrapper
-            pythonEnv
+            lrBin
           ];
+
           shellHook = ''
             export LAZYREPORTING_CONFIG="''${LAZYREPORTING_CONFIG:-$HOME/.config/lazyreporting/config.yaml}"
-
-            alias lr="python -m lazyreporting"
 
             if [ ! -f "$LAZYREPORTING_CONFIG" ]; then
               echo "Warning: lazyreporting config not found at $LAZYREPORTING_CONFIG"
