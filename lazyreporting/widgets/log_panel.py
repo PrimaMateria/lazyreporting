@@ -188,6 +188,7 @@ class LogPanel(Widget):
         self._entries = watson.get_log(self._day)
         self._focused_idx = 0 if self._entries else -1
         self._update_display()
+        self.scroll_end(animate=False)
 
     def _update_display(self) -> None:
         day = self._day
