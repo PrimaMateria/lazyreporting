@@ -204,12 +204,8 @@ class LazyReporting(App):
     # ── Pane navigation ──────────────────────────────────────────────────────
 
     def on_key(self, event) -> None:
-        if event.key == "escape":
-            if self._nav_mode:
-                # Second Escape cancels nav mode, restores focus to active pane.
-                self._exit_nav_mode(enter=False)
-            else:
-                self._enter_nav_mode()
+        if event.key == "escape" and not self._nav_mode:
+            self._enter_nav_mode()
             event.stop()
             return
 
@@ -244,7 +240,7 @@ class LazyReporting(App):
             self.query_one(f"#{pid}").remove_class("pane-active")
         self._highlight_pane(self._nav_pane)
         self.query_one("#status-bar", Static).update(
-            "[yellow]NAV[/]  h/l ←→ columns   j/k ↑↓ rows   Enter: enter   Esc: cancel"
+            "[yellow]NAV[/]  h/l ←→ columns   j/k ↑↓ rows   Enter: enter"
         )
 
     def _exit_nav_mode(self, enter: bool) -> None:
