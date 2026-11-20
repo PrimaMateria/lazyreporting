@@ -1,11 +1,34 @@
 import json
+import os
 import subprocess
+import sys
 from datetime import date, datetime
+from pathlib import Path
 
 
 def _run(cmd: list[str]) -> str:
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return result.stdout
+
+
+def frames_path() -> Path:
+    """Location of watson's frames file (mirrors watson's own lookup)."""
+    watson_dir = os.environ.get("WATSON_DIR")
+    if watson_dir:
+        return Path(watson_dir) / "frames"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "watson" / "frames"
+    config_home = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
+    return Path(config_home) / "watson" / "frames"
+
+
+def frames_signature() -> tuple[int, int] | None:
+    """Cheap fingerprint of the frames file used to detect external edits."""
+    try:
+        st = frames_path().stat()
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
 
 
 def get_log(day: date) -> list[dict]:

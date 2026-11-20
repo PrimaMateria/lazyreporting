@@ -171,7 +171,7 @@ class LazyReporting(App):
         else:
             self.query_one("#status-bar", Static).update("Fetching issues…")
 
-        self.run_worker(self._fetch_issues_worker, exclusive=True, thread=True)
+        self.run_worker(self._fetch_issues_worker, group="issues", exclusive=True, thread=True)
 
         self.query_one(EntryForm).set_config(self._app_config)
 
@@ -183,6 +183,13 @@ class LazyReporting(App):
 
         self._known_today = today
         self.set_interval(60, self._check_date_rollover)
+
+        # Watch watson's frames file so external edits show up live.
+        self._frames_sig = watson.frames_signature()
+        self.set_interval(2, self._check_frames_changed)
+
+        # Periodically refresh Jira issues in the background (quietly).
+        self.set_interval(15 * 60, self._background_refresh_issues)
 
         # Mark and focus entry pane as the initially active pane
         self._set_active_pane("entry-pane")
@@ -200,6 +207,14 @@ class LazyReporting(App):
             if cal.selected == self._known_today:
                 cal.selected = new_today
             self._known_today = new_today
+
+    def _check_frames_changed(self) -> None:
+        sig = watson.frames_signature()
+        if sig == self._frames_sig:
+            return
+        self._frames_sig = sig
+        self.query_one(LogPanel).reload_external()
+        self.query_one(SummaryPanel).refresh_for_day(self.query_one(CalendarWidget).selected)
 
     # ── Pane navigation ──────────────────────────────────────────────────────
 
@@ -297,7 +312,15 @@ class LazyReporting(App):
         self.query_one(LogPanel).refresh_for_day(event.day)
         self.query_one(SummaryPanel).refresh_for_day(event.day)
 
-    def _fetch_issues_worker(self) -> None:
+    def _background_refresh_issues(self) -> None:
+        self.run_worker(
+            lambda: self._fetch_issues_worker(quiet=True),
+            group="issues",
+            exclusive=True,
+            thread=True,
+        )
+
+    def _fetch_issues_worker(self, quiet: bool = False) -> None:
         try:
             server = cfg.get_jira_server(self._app_config)
             email = cfg.get_jira_email(self._app_config)
@@ -307,6 +330,8 @@ class LazyReporting(App):
             issues = jira_client.fetch_issues(server, email, api_token, projects, label)
             jira_client.save_cache(issues)
             self.call_from_thread(self._set_issues, issues)
+            if quiet:
+                return
             self.call_from_thread(
                 self.query_one("#status-bar", Static).update,
                 f"Issues: {len(issues)} (just updated)",
@@ -324,7 +349,7 @@ class LazyReporting(App):
 
     def action_refresh_issues(self) -> None:
         self.query_one("#status-bar", Static).update("Refreshing…")
-        self.run_worker(self._fetch_issues_worker, exclusive=True, thread=True)
+        self.run_worker(self._fetch_issues_worker, group="issues", exclusive=True, thread=True)
 
     def action_sync_jira(self) -> None:
         self.query_one("#status-bar", Static).update("Syncing to Jira…")

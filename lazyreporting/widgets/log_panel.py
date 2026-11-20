@@ -182,6 +182,13 @@ class LogPanel(Widget):
         self._day = day
         self._reload()
 
+    def reload_external(self) -> None:
+        """Re-read entries after an external change, keeping the cursor position."""
+        prev_idx = self._focused_idx
+        self._entries = watson.get_log(self._day)
+        self._focused_idx = self._clamp(prev_idx if prev_idx >= 0 else 0)
+        self._update_display()
+
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _reload(self) -> None:
