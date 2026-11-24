@@ -2,8 +2,13 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
+
+import yaml
+
+from . import config
 
 
 def _run(cmd: list[str]) -> str:
@@ -83,11 +88,20 @@ def add_entry(
 
 
 def sync_jira(from_days: int | None = None) -> str:
-    cmd = ["watson-jira", "sync"]
-    if from_days is not None:
-        cmd += ["--from", str(from_days)]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.stdout + result.stderr
+    # watson-jira gets a throwaway config generated from ours, so there is one
+    # config file to maintain. It holds the API token, hence 0600 + cleanup.
+    wj_cfg = config.watson_jira_config(config.load())
+    fd, path = tempfile.mkstemp(prefix="watson-jira-", suffix=".yaml")
+    try:
+        with os.fdopen(fd, "w") as f:
+            yaml.safe_dump(wj_cfg, f, sort_keys=False)
+        cmd = ["watson-jira", "--config", path, "sync"]
+        if from_days is not None:
+            cmd += ["--from", str(from_days)]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.stdout + result.stderr
+    finally:
+        os.unlink(path)
 
 
 def remove_entry(frame_id: str) -> None:

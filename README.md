@@ -64,7 +64,19 @@ watson:
   default:                         # used when no ticket is given (or prefix doesn't match)
     project: myproject
     tags: [other]
+
+watsonJira:
+  mappings:                        # watson-jira mappings: which Jira issue a frame is logged to
+    - name: sprint
+      type: issue_specified_in_tag # the ticket key in the frame's tags
+    - name: other
+      type: single_issue
+      issue: PROJ1-1               # catch-all issue for untracked work
 ```
+
+Jira sync runs `watson-jira` with a temporary config generated from the `jira`
+credentials and `watsonJira.mappings` above, so there is no separate
+watson-jira config to maintain.
 
 When a ticket key is matched, it is automatically appended to `tags` so Watson frames stay linked to the Jira issue (e.g. tags become `[sprint, PROJ1-42]`).
 

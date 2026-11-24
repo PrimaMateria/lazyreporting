@@ -16,13 +16,12 @@
     utils.lib.eachDefaultSystem (
       system: let
         overlay = final: prev: {
-          # Wraps watson-jira-next so the config path can be overridden via
-          # WATSON_JIRA_CONFIG instead of being hardcoded.
+          # Exposes watson-jira-next as `watson-jira`. lazyreporting always passes
+          # --config with a file generated from its own config (see watson.py).
           watson-jira-next-wrapper = prev.writeShellApplication {
             name = "watson-jira";
             text = ''
-              CONFIG="''${WATSON_JIRA_CONFIG:-$HOME/.config/watson-jira/config.yaml}"
-              ${inputs.watson-jira-next.defaultPackage.x86_64-linux}/bin/watson-jira-next --config "$CONFIG" "$@"
+              exec ${inputs.watson-jira-next.defaultPackage.x86_64-linux}/bin/watson-jira-next "$@"
             '';
           };
         };
@@ -95,6 +94,10 @@
               echo "    default:"
               echo "      project: myproject"
               echo "      tags: [other]"
+              echo "  watsonJira:"
+              echo "    mappings:"
+              echo "      - name: sprint"
+              echo "        type: issue_specified_in_tag"
             fi
 
             echo "nix.shell.lazyreporting"

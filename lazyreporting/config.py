@@ -49,6 +49,25 @@ def get_jira_label(cfg: dict) -> str | None:
     return cfg.get("jira", {}).get("label")
 
 
+def watson_jira_config(cfg: dict) -> dict:
+    """Config for watson-jira, derived from ours: same Jira credentials plus the
+    `watsonJira.mappings` that decide which issue a Watson frame is logged to."""
+    try:
+        mappings = cfg["watsonJira"]["mappings"]
+    except KeyError:
+        raise KeyError(
+            "Missing watsonJira.mappings in config (watson-jira mappings for sync)."
+        )
+    return {
+        "jira": {
+            "server": get_jira_server(cfg),
+            "email": get_jira_email(cfg),
+            "apiToken": get_jira_api_token(cfg),
+        },
+        "mappings": mappings,
+    }
+
+
 def map_ticket_to_args(ticket: str, cfg: dict) -> tuple[str, list[str]]:
     """Return (watson_project, tags) for a given Jira ticket key, using config mappings."""
     watson_cfg = cfg.get("watson", {})
